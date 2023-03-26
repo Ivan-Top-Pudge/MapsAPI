@@ -58,9 +58,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.searchButton.clicked.connect(self.search_address)
         self.regymeButton.clicked.connect(self.change_regyme)
         self.reset_pointButton.clicked.connect(self.resetPoint)
+        self.add_indexRadioButton.clicked.connect(self.editAddress)
         self.map_types = ('map', 'sat', 'sat,skl')
         self.map_types_names = ['Схема', 'Спутник', 'Гибрид']
         self.current_map = 0
+        self.address = dict()
 
         geocoder_request = "http://geocode-maps.yandex.ru/1.x/" \
                            "?apikey=40d1649f-0493-4b70-98ba-98533de7710b&" \
@@ -95,6 +97,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def resetPoint(self):
         del self.map_params['pt']
+        self.addressLabel.setText('Здесь будет адрес')
         self.change_map()
 
     def search_address(self):
@@ -105,16 +108,23 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if response:
             json_response = response.json()
             toponym = json_response["response"]["GeoObjectCollection"]["featureMember"][0]["GeoObject"]
-            address = toponym['metaDataProperty']['GeocoderMetaData']['Address']
+            self.address = toponym['metaDataProperty']['GeocoderMetaData']['Address']
             toponym_cords = toponym['Point']['pos'].replace(' ', ',')
             self.map_params['ll'] = toponym_cords
             self.map_params['spn'] = ','.join(get_auto_spn(toponym))
             self.map_params['pt'] = f'{toponym_cords},pm2rdm'
             self.change_map()
 
-            self.addressLabel.setText(f"Адрес: {address['formatted']}")
-            if self.add_indexRadioButton.isChecked() and 'postal_code' in address:
-                self.addressLabel.setText(f"{self.addressLabel.text()} -- {address['postal_code']}")
+            self.addressLabel.setText(f"Адрес: {self.address['formatted']}")
+            if self.add_indexRadioButton.isChecked() and 'postal_code' in self.address:
+                self.addressLabel.setText(f"{self.addressLabel.text()} -- {self.address['postal_code']}")
+
+    def editAddress(self):
+        if self.address:
+            if self.add_indexRadioButton.isChecked() and 'postal_code' in self.address:
+                self.addressLabel.setText(f"Адрес: {self.address['formatted']} -- {self.address['postal_code']}")
+            else:
+                self.addressLabel.setText(f"Адрес: {self.address['formatted']}")
 
     def keyPressEvent(self, event):
         #  Изменение масштаба
