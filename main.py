@@ -1,6 +1,8 @@
+import os
 import sys
 from PyQt5 import QtCore, QtGui, QtWidgets
-import requests
+from PyQt5.QtCore import Qt
+import httpx
 
 
 class Ui_MainWindow(object):
@@ -31,60 +33,76 @@ class Ui_MainWindow(object):
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
         self.searchButton.setText("Искать")
 
-class MyWidget(QtWidgets.QMainWindow, Ui_MainWindow):
+class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self):
         super().__init__()
         self.setupUi(self)
+        self.searchButton.clicked.connect(self.search_address)
+
         geocoder_request = "http://geocode-maps.yandex.ru/1.x/" \
                            "?apikey=40d1649f-0493-4b70-98ba-98533de7710b&" \
-                           "geocode=Австралия&format=json"
+                           "geocode=Йорк&format=json"
 
-        response = requests.get(geocoder_request)
-        if response:
-            json_response = response.json()
+        response = httpx.get(geocoder_request)
+        json_response = response.json()
 
-            toponym = json_response["response"]["GeoObjectCollection"]["featureMember"][0]["GeoObject"]
-            toponym_cords = toponym["Point"]["pos"]
-            cords = toponym_cords.split()
+        toponym = json_response["response"]["GeoObjectCollection"]["featureMember"][0]["GeoObject"]
+        toponym_cords = toponym["Point"]["pos"]
+        cords = toponym_cords.split()
 
-            map_request = f"https://static-maps.yandex.ru/1.x/?ll={cords[0]},{cords[1]}&spn=35,35&l=sat"
-            response = requests.get(map_request)
+        self.url = f"https://static-maps.yandex.ru/1.x/"
+        self.map_params = {'ll': ','.join(cords), 'spn': '0.1,0.1', 'l': 'map'}
+        self.map_file = "map.png"
 
-        if not response:
-            print("Ошибка выполнения запроса:")
-            print(map_request)
-            print("Http статус:", response.status_code, "(", response.reason, ")")
-            sys.exit(1)
+        self.change_map()
 
-        map_file = "map.png"
-        with open(map_file, "wb") as file:
+    def change_map(self):
+        response = httpx.get(self.url, params=self.map_params)
+        with open(self.map_file, "wb") as file:
             file.write(response.content)
-        self.pix = QtGui.QPixmap('map.png')
+        self.pix = QtGui.QPixmap(self.map_file)
         self.label.setPixmap(self.pix)
-        self.searchButton.clicked.connect(self.search_address)
+
 
     def search_address(self):
         geocoder_request = "http://geocode-maps.yandex.ru/1.x/" \
                            "?apikey=40d1649f-0493-4b70-98ba-98533de7710b&" \
                            f"geocode={self.inputWidget.text()}&format=json"
-        response = requests.get(geocoder_request)
+        response = httpx.get(geocoder_request)
         if response:
             json_response = response.json()
             toponym = json_response["response"]["GeoObjectCollection"]["featureMember"][0]["GeoObject"]
             toponym_cords = toponym['Point']['pos'].replace(' ', ',')
+            self.map_params['ll'] = toponym_cords
+            self.map_params['spn'] = ','.join(get_auto_spn(toponym))
+            self.map_params['pt'] = f'{toponym_cords},pm2rdm'
 
-            map_request = f"https://static-maps.yandex.ru/1.x/?ll={toponym_cords}&spn=1,1&l=map&pt={toponym_cords},pm2rdm"
-            response = requests.get(map_request)
-            map_file = "map.png"
-            with open(map_file, "wb") as file:
-                file.write(response.content)
-            self.pix = QtGui.QPixmap('map.png')
-            self.label.setPixmap(self.pix)
-            self.searchButton.clicked.connect(self.search_address)
+            self.change_map()
+            del self.map_params['pt']
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_PageUp:
+            spn = list(map(lambda x: str(min(float(x) * 2, 10)), self.map_params['spn'].split(',')))
+            self.map_params['spn'] = ','.join(spn)
+            self.change_map()
+        elif event.key() == Qt.Key_PageDown:
+            spn = list(map(lambda x: str(max(float(x) / 2, 0.01)), self.map_params['spn'].split(',')))
+            self.map_params['spn'] = ','.join(spn)
+            self.change_map()
+
+def get_auto_spn(obj: dict):
+    frame = obj['boundedBy']['Envelope']
+    lowerCorner = frame['lowerCorner']
+    upperCorner = frame['upperCorner']
+    left, bottom = lowerCorner.split()
+    right, up = upperCorner.split()
+    dx = abs(float(left) - float(right))
+    dy = abs(float(up) - float(bottom))
+    return str(dx), str(dy)
 
 
 if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
-    window = MyWidget()
+    window = MainWindow()
     window.show()
     sys.exit(app.exec_())
