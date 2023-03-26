@@ -8,7 +8,7 @@ import httpx
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(600, 450)
+        MainWindow.resize(600, 550)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.label = QtWidgets.QLabel(self.centralwidget)
@@ -22,6 +22,8 @@ class Ui_MainWindow(object):
         self.searchButton = QtWidgets.QPushButton(MainWindow)
         self.searchButton.setGeometry(QtCore.QRect(425, 0, 150, 50))
 
+        self.regymeButton = QtWidgets.QPushButton(MainWindow)
+        self.regymeButton.setGeometry(QtCore.QRect(50, 500, 150, 50))
 
         MainWindow.setCentralWidget(self.centralwidget)
 
@@ -32,12 +34,17 @@ class Ui_MainWindow(object):
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
         self.searchButton.setText("Искать")
+        self.regymeButton.setText(f'Вид карты: Схема')
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self):
         super().__init__()
         self.setupUi(self)
         self.searchButton.clicked.connect(self.search_address)
+        self.regymeButton.clicked.connect(self.change_regyme)
+        self.map_types = ('map', 'sat', 'sat,skl')
+        self.map_types_names = ['Схема', 'Спутник', 'Гибрид']
+        self.current_map = 0
 
         geocoder_request = "http://geocode-maps.yandex.ru/1.x/" \
                            "?apikey=40d1649f-0493-4b70-98ba-98533de7710b&" \
@@ -56,6 +63,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.change_map()
 
+
     def change_map(self):
         response = httpx.get(self.url, params=self.map_params)
         with open(self.map_file, "wb") as file:
@@ -63,6 +71,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.pix = QtGui.QPixmap(self.map_file)
         self.label.setPixmap(self.pix)
 
+    def change_regyme(self):
+        self.current_map = (self.current_map + 1) % 3
+        self.map_params['l'] = self.map_types[self.current_map]
+        self.change_map()
+        self.regymeButton.setText(f'Вид карты: {self.map_types_names[self.current_map]}')
 
     def search_address(self):
         geocoder_request = "http://geocode-maps.yandex.ru/1.x/" \
@@ -78,7 +91,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.map_params['pt'] = f'{toponym_cords},pm2rdm'
 
             self.change_map()
-            del self.map_params['pt']
 
     def keyPressEvent(self, event):
         #  Изменение масштаба
