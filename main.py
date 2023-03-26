@@ -32,6 +32,11 @@ class Ui_MainWindow(object):
         self.addressLabel.setFont(font)
         self.addressLabel.setWordWrap(True)
 
+        self.add_indexRadioButton = QtWidgets.QRadioButton(MainWindow)
+        self.add_indexRadioButton.setGeometry(QtCore.QRect(350, 500, 130, 50))
+        font = QtGui.QFont('Arial', 10)
+        self.add_indexRadioButton.setFont(font)
+
         MainWindow.setCentralWidget(self.centralwidget)
 
         self.retranslateUi(MainWindow)
@@ -44,6 +49,7 @@ class Ui_MainWindow(object):
         self.regymeButton.setText(f'Вид карты: Схема')
         self.reset_pointButton.setText('Сброс поискового результата')
         self.addressLabel.setText('Здесь будет адрес')
+        self.add_indexRadioButton.setText('Приписать индекс')
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self):
@@ -99,15 +105,16 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if response:
             json_response = response.json()
             toponym = json_response["response"]["GeoObjectCollection"]["featureMember"][0]["GeoObject"]
-            address = toponym['metaDataProperty']['GeocoderMetaData']['Address']['formatted']
+            address = toponym['metaDataProperty']['GeocoderMetaData']['Address']
             toponym_cords = toponym['Point']['pos'].replace(' ', ',')
             self.map_params['ll'] = toponym_cords
             self.map_params['spn'] = ','.join(get_auto_spn(toponym))
             self.map_params['pt'] = f'{toponym_cords},pm2rdm'
-
             self.change_map()
 
-            self.addressLabel.setText(f"Адрес: {address}")
+            self.addressLabel.setText(f"Адрес: {address['formatted']}")
+            if self.add_indexRadioButton.isChecked() and 'postal_code' in address:
+                self.addressLabel.setText(f"{self.addressLabel.text()} -- {address['postal_code']}")
 
     def keyPressEvent(self, event):
         #  Изменение масштаба
