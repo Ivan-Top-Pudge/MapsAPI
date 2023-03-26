@@ -8,7 +8,7 @@ import httpx
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(600, 550)
+        MainWindow.resize(600, 620)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.label = QtWidgets.QLabel(self.centralwidget)
@@ -21,9 +21,16 @@ class Ui_MainWindow(object):
 
         self.searchButton = QtWidgets.QPushButton(MainWindow)
         self.searchButton.setGeometry(QtCore.QRect(425, 0, 150, 50))
-
         self.regymeButton = QtWidgets.QPushButton(MainWindow)
-        self.regymeButton.setGeometry(QtCore.QRect(50, 500, 150, 50))
+        self.regymeButton.setGeometry(QtCore.QRect(15, 500, 150, 50))
+        self.reset_pointButton = QtWidgets.QPushButton(MainWindow)
+        self.reset_pointButton.setGeometry(QtCore.QRect(170, 500, 175, 50))
+
+        font = QtGui.QFont('Arial', 14)
+        self.addressLabel = QtWidgets.QLabel(MainWindow)
+        self.addressLabel.setGeometry(QtCore.QRect(15, 560, 550, 50))
+        self.addressLabel.setFont(font)
+        self.addressLabel.setWordWrap(True)
 
         MainWindow.setCentralWidget(self.centralwidget)
 
@@ -35,6 +42,8 @@ class Ui_MainWindow(object):
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
         self.searchButton.setText("Искать")
         self.regymeButton.setText(f'Вид карты: Схема')
+        self.reset_pointButton.setText('Сброс поискового результата')
+        self.addressLabel.setText('Здесь будет адрес')
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self):
@@ -42,13 +51,14 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.setupUi(self)
         self.searchButton.clicked.connect(self.search_address)
         self.regymeButton.clicked.connect(self.change_regyme)
+        self.reset_pointButton.clicked.connect(self.resetPoint)
         self.map_types = ('map', 'sat', 'sat,skl')
         self.map_types_names = ['Схема', 'Спутник', 'Гибрид']
         self.current_map = 0
 
         geocoder_request = "http://geocode-maps.yandex.ru/1.x/" \
                            "?apikey=40d1649f-0493-4b70-98ba-98533de7710b&" \
-                           "geocode=Йорк&format=json"
+                           "geocode=Неаполь&format=json"
 
         response = httpx.get(geocoder_request)
         json_response = response.json()
@@ -77,6 +87,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.change_map()
         self.regymeButton.setText(f'Вид карты: {self.map_types_names[self.current_map]}')
 
+    def resetPoint(self):
+        del self.map_params['pt']
+        self.change_map()
+
     def search_address(self):
         geocoder_request = "http://geocode-maps.yandex.ru/1.x/" \
                            "?apikey=40d1649f-0493-4b70-98ba-98533de7710b&" \
@@ -85,12 +99,15 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if response:
             json_response = response.json()
             toponym = json_response["response"]["GeoObjectCollection"]["featureMember"][0]["GeoObject"]
+            address = toponym['metaDataProperty']['GeocoderMetaData']['Address']['formatted']
             toponym_cords = toponym['Point']['pos'].replace(' ', ',')
             self.map_params['ll'] = toponym_cords
             self.map_params['spn'] = ','.join(get_auto_spn(toponym))
             self.map_params['pt'] = f'{toponym_cords},pm2rdm'
 
             self.change_map()
+
+            self.addressLabel.setText(f"Адрес: {address}")
 
     def keyPressEvent(self, event):
         #  Изменение масштаба
