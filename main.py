@@ -81,14 +81,47 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             del self.map_params['pt']
 
     def keyPressEvent(self, event):
+        #  Изменение масштаба
         if event.key() == Qt.Key_PageUp:
-            spn = list(map(lambda x: str(min(float(x) * 2, 10)), self.map_params['spn'].split(',')))
+            spn = map(lambda x: str(min(float(x) * 2, 10)), self.map_params['spn'].split(','))
             self.map_params['spn'] = ','.join(spn)
             self.change_map()
         elif event.key() == Qt.Key_PageDown:
-            spn = list(map(lambda x: str(max(float(x) / 2, 0.01)), self.map_params['spn'].split(',')))
+            spn = map(lambda x: str(max(float(x) / 2, 0.01)), self.map_params['spn'].split(','))
             self.map_params['spn'] = ','.join(spn)
             self.change_map()
+        #  Движение камеры
+        elif event.key() == Qt.Key_Up:
+            spn = float(self.map_params['spn'].split(',')[0])
+            ll = self.map_params['ll'].split(',')
+            ll[1] = str(min(float(ll[1]) + 0.5 * spn, 80))
+            self.map_params['ll'] = ','.join(ll)
+            self.change_map()
+        elif event.key() == Qt.Key_Down:
+            spn = float(self.map_params['spn'].split(',')[0])
+            ll = self.map_params['ll'].split(',')
+            ll[1] = str(max(float(ll[1]) - 0.5 * spn, -80))
+            self.map_params['ll'] = ','.join(ll)
+            self.change_map()
+        elif event.key() == Qt.Key_Right:
+            spn = float(self.map_params['spn'].split(',')[0])
+            ll = self.map_params['ll'].split(',')
+            ll[0] = str(min(float(ll[0]) + 0.5 * spn, 170))
+            self.map_params['ll'] = ','.join(ll)
+            self.change_map()
+        elif event.key() == Qt.Key_Left:
+            spn = float(self.map_params['spn'].split(',')[0])
+            ll = self.map_params['ll'].split(',')
+            ll[0] = str(max(float(ll[0]) - 0.5 * spn, -170))
+            self.map_params['ll'] = ','.join(ll)
+            self.change_map()
+
+    def mousePressEvent(self, event):
+        focused_widget = QtGui.QGuiApplication.focusObject()
+        if isinstance(focused_widget, QtWidgets.QLineEdit):
+            focused_widget.clearFocus()
+        self.setFocus()
+
 
 def get_auto_spn(obj: dict):
     frame = obj['boundedBy']['Envelope']
